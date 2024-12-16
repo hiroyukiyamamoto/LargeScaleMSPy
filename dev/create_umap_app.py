@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, State
 import pandas as pd
 import numpy as np
-from pyopenms import MSExperiment, FileHandler
+from pyteomics import mgf
 
 
 def load_umap_results(umap_file_path):
@@ -18,22 +18,20 @@ def load_umap_results(umap_file_path):
     return umap_df
 
 
-def load_mgf_spectra(mgf_file_path):
+def load_specific_spectrum(mgf_file_path, spectrum_index):
     """
-    MGFファイルからMS/MSスペクトルを読み込む
+    MGFファイルから特定のスペクトルをロード
     """
-    exp = MSExperiment()
-    handler = FileHandler()
-    handler.loadExperiment(mgf_file_path, exp)
-    spectra = []
-    for spec in exp:
-        mz = spec.get_peaks()[0]
-        intensity = spec.get_peaks()[1]
-        spectra.append({"mz": mz, "intensity": intensity})
-    return spectra
+    with mgf.read(mgf_file_path) as reader:
+        for i, spectrum in enumerate(reader):
+            if i == spectrum_index:
+                mz = spectrum['m/z array']
+                intensity = spectrum['intensity array']
+                return mz, intensity
+    return None, None
 
 
-def create_umap_app(umap_df, spectra):
+def create_umap_app(umap_df, mgf_file_path):
     """
     Dashアプリケーションを作成
     """
@@ -57,8 +55,8 @@ def create_umap_app(umap_df, spectra):
     def update_spectra(click_data, existing_spectra):
         # 初期UMAPプロット
         fig = px.scatter(
-            umap_df, 
-            x="UMAP Dimension 1", 
+            umap_df,
+            x="UMAP Dimension 1",
             y="UMAP Dimension 2",
             hover_data=["Index"],
             title="UMAP Plot",
@@ -69,21 +67,21 @@ def create_umap_app(umap_df, spectra):
         # スペクトル表示
         if click_data:
             index = click_data["points"][0]["customdata"]
-            mz = spectra[index]["mz"]
-            intensity = spectra[index]["intensity"]
+            mz, intensity = load_specific_spectrum(mgf_file_path, index)
 
-            new_figure = dcc.Graph(
-                figure=go.Figure(
-                    data=go.Scatter(x=mz, y=intensity, mode="lines"),
-                    layout=go.Layout(
-                        title=f"MS/MS Spectrum for Index {index}",
-                        xaxis_title="m/z",
-                        yaxis_title="Intensity"
+            if mz is not None and intensity is not None:
+                new_figure = dcc.Graph(
+                    figure=go.Figure(
+                        data=go.Scatter(x=mz, y=intensity, mode="lines"),
+                        layout=go.Layout(
+                            title=f"MS/MS Spectrum for Index {index}",
+                            xaxis_title="m/z",
+                            yaxis_title="Intensity"
+                        )
                     )
                 )
-            )
-            existing_spectra.append(new_figure)
-            existing_spectra = existing_spectra[-3:]  # 履歴を最大3件に制限
+                existing_spectra.append(new_figure)
+                existing_spectra = existing_spectra[-3:]  # 履歴を最大3件に制限
 
         return fig, existing_spectra
 
@@ -97,8 +95,7 @@ if __name__ == "__main__":
 
     # データ読み込み
     umap_df = load_umap_results(umap_results_path)
-    spectra = load_mgf_spectra(mgf_file_path)
 
     # アプリケーションの作成と実行
-    app = create_umap_app(umap_df, spectra)
+    app = create_umap_app(umap_df, mgf_file_path)
     app.run_server(debug=True)
