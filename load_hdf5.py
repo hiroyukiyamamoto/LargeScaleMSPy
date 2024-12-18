@@ -31,15 +31,15 @@ def load_hdf5(file_path):
 
 ### テスト
 # HDF5ファイルの読み込み
-output_hdf5_file = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test.h5"
-spectra, precursor_mzs = load_hdf5(output_hdf5_file)
+#output_hdf5_file = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test.h5"
+#spectra, precursor_mzs = load_hdf5(output_hdf5_file)
 
 # 結果の確認
-print(f"Number of spectra: {len(spectra)}")
-if spectra:
-    print(f"Number of bins in first spectrum: {spectra[0].shape[1]}")
-print(f"First precursor m/z: {precursor_mzs[0]}")
+#print(f"Number of spectra: {len(spectra)}")
+#if spectra:
+#    print(f"Number of bins in first spectrum: {spectra[0].shape[1]}")
+#print(f"First precursor m/z: {precursor_mzs[0]}")
 
 # 最初のスペクトルのスパース行列を表示
-if spectra:
-    print(spectra[0])
+#if spectra:
+#    print(spectra[0])
