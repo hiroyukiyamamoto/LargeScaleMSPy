@@ -106,7 +106,7 @@ def perform_umap(pca_scores, valid_spectrum_keys, umap_output_file, umap_csv_fil
     print(f"UMAP results saved to {umap_csv_file}")
 
     plt.figure(figsize=(10, 8))
-    plt.scatter(umap_results[:, 0], umap_results[:, 1], s=1, alpha=0.8)
+    plt.scatter(umap_results[:, 0], umap_results[:, 1], s=0.001, alpha=0.1)
     plt.title("UMAP Projection", fontsize=16)
     plt.xlabel("UMAP Dimension 1", fontsize=12)
     plt.ylabel("UMAP Dimension 2", fontsize=12)
