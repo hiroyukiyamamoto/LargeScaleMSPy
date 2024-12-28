@@ -10,11 +10,13 @@ setup(
     packages=find_packages(),  # パッケージを自動検出
     include_package_data=True,  # 非Pythonファイルも含める
     install_requires=[
-        "dash>=2.0.0",  # Dashの依存関係
-        "numpy>=1.20.0",  # NumPy
-        "pandas>=1.2.0",  # Pandas
-        "plotly>=5.0.0",  # Plotly
-        "scipy>=1.6.0",  # SciPy（必要なら）
+        "numpy",
+        "scipy",
+        "h5sparse",
+        "pandas",
+        "plotly",
+        "dash",
+        "umap-learn"
     ],
     entry_points={
         "console_scripts": [
