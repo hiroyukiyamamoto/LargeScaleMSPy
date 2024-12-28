@@ -4,7 +4,6 @@ from scipy.sparse import csr_matrix
 import h5sparse
 import scipy.sparse as sp
 from sklearn.decomposition import IncrementalPCA
-from sklearn.preprocessing import StandardScaler
 from umap.umap_ import UMAP
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -89,6 +88,11 @@ def process_similarity_matrix(input_file_path, min_peaks=3, output_csv_path=None
     adjacency_matrix = adjacency_matrix[valid_indices][:, valid_indices]
     print(f"Filtered adjacency matrix shape: {adjacency_matrix.shape}")
 
+    # グラフ隣接行列をCSVに保存
+    if output_csv_path:
+        pd.DataFrame(adjacency_matrix).to_csv(output_csv_path, index=False, header=False)
+        print(f"Adjacency matrix saved to {output_csv_path}")
+
     return adjacency_matrix, valid_indices
 
 # PCA実行関数（隣接行列を利用）
@@ -135,19 +139,34 @@ def perform_pca_from_adjacency(adjacency_matrix, valid_indices, output_file, chu
     return pca_scores, ipca.components_
 
 # UMAP実行関数
-def perform_umap(pca_scores, valid_spectrum_keys, umap_output_file, umap_csv_file):
+def perform_umap(pca_scores, valid_indices, umap_output_file, umap_csv_file):
+    """
+    UMAP実行関数。
+
+    Parameters:
+        pca_scores (numpy.ndarray): PCAスコア。
+        valid_indices (numpy.ndarray): 有効なスペクトルインデックス。
+        umap_output_file (str): UMAP結果保存ファイル。
+        umap_csv_file (str): UMAP結果保存CSVファイル。
+    """
     print("Starting UMAP...")
     umap = UMAP(n_neighbors=10, min_dist=0.01, n_components=2, random_state=42)
     umap_results = umap.fit_transform(pca_scores)
 
-    np.savez(umap_output_file, umap_results=umap_results, valid_keys=valid_spectrum_keys)
+    # スペクトルキーの生成
+    spectrum_keys = [f"spectrum_{i + 1:04d}" for i in valid_indices]
+
+    # UMAP結果を保存
+    np.savez(umap_output_file, umap_results=umap_results, valid_keys=spectrum_keys)
     print(f"UMAP results saved to {umap_output_file}")
 
+    # UMAP結果をデータフレームに保存
     umap_df = pd.DataFrame(umap_results, columns=["UMAP_1", "UMAP_2"])
-    umap_df["Spectrum_Key"] = valid_spectrum_keys
+    umap_df["Spectrum_Key"] = spectrum_keys
     umap_df.to_csv(umap_csv_file, index=False)
     print(f"UMAP results saved to {umap_csv_file}")
 
+    # プロットの生成
     plt.figure(figsize=(10, 8))
     plt.scatter(umap_results[:, 0], umap_results[:, 1], s=1, alpha=1)
     plt.title("UMAP Projection", fontsize=16)
@@ -174,7 +193,7 @@ def main():
     pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, pca_output_file, chunk_size=10000)
 
     # UMAPを実行
-    perform_umap(pca_scores, valid_spectrum_keys=valid_indices, umap_output_file=umap_output_file, umap_csv_file=umap_csv_file)
+    perform_umap(pca_scores, valid_indices, umap_output_file=umap_output_file, umap_csv_file=umap_csv_file)
 
 if __name__ == "__main__":
     main()
