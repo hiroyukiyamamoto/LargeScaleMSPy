@@ -113,19 +113,19 @@ def perform_umap(pca_scores, valid_spectrum_keys, umap_output_file, umap_csv_fil
     plt.grid(True)
     plt.show()
 
-# メイン関数
-def main():
-    input_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test.h5"
-    processed_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test2.h5"
-    filtered_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test3.h5"
-    pca_output_file = "pca_results2.npz"
-    umap_output_file = "umap_results.npz"
-    umap_csv_file = "umap_results.csv"
-
-    preprocess_data(input_file_path, processed_file_path)
-    filter_data(processed_file_path, filtered_file_path)
-    pca_scores, valid_spectrum_keys = perform_pca(filtered_file_path, pca_output_file)
-    perform_umap(pca_scores, valid_spectrum_keys, umap_output_file, umap_csv_file)
-
-if __name__ == "__main__":
-    main()
+## メイン関数
+#def main():
+#    input_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test.h5"
+#    processed_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test2.h5"
+#    filtered_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test3.h5"
+#    pca_output_file = "pca_results2.npz"
+#    umap_output_file = "umap_results.npz"
+#    umap_csv_file = "umap_results.csv"
+#
+#    preprocess_data(input_file_path, processed_file_path)
+#    filter_data(processed_file_path, filtered_file_path)
+#    pca_scores, valid_spectrum_keys = perform_pca(filtered_file_path, pca_output_file)
+#    perform_umap(pca_scores, valid_spectrum_keys, umap_output_file, umap_csv_file)
+#
+#if __name__ == "__main__":
+#    main()
