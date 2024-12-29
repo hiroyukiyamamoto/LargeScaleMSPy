@@ -1,24 +1,11 @@
 import os
 import numpy as np
-from scipy.sparse import csr_matrix
-import h5sparse
-import scipy.sparse as sp
 from dash import Dash, dcc, html, Input, Output, State
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-def load_umap_results(umap_file_path):
-    """
-    UMAP結果を読み込む
-    """
-    umap_results = np.load(umap_file_path)
-    umap_data = umap_results["umap_results"]
-    valid_keys = umap_results["valid_keys"]
-    umap_df = pd.DataFrame(umap_data, columns=["UMAP Dimension 1", "UMAP Dimension 2"])
-    umap_df["Index"] = valid_keys
-    return umap_df
-
+# MGFファイルの読み込み関数
 def parse_mgf_to_spectra(mgf_file_path):
     """
     MGFファイルを解析して各スペクトルの情報を取得
@@ -49,6 +36,7 @@ def parse_mgf_to_spectra(mgf_file_path):
                         continue
     return spectra
 
+# 特定のスペクトルデータを取得する関数
 def load_specific_spectrum_from_mgf(spectra, index):
     """
     MGFファイルのスペクトルデータをインデックスで取得
@@ -56,10 +44,10 @@ def load_specific_spectrum_from_mgf(spectra, index):
     if index < 0 or index >= len(spectra):
         raise IndexError(f"Spectrum index {index} is out of range.")
 
-    # `spectra` の構造が (precursor_mz, mz_values, intensity_values) である場合
     precursor_mz, mz_values, intensity_values = spectra[index]
-    return mz_values, intensity_values  # 必要なデータ形式のみを返す
+    return mz_values, intensity_values
 
+# Dashアプリケーションの作成
 def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
     """
     Dashアプリケーションを作成
@@ -93,7 +81,7 @@ def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
         Output("spectra-container", "children"),
         Input("umap-plot", "clickData"),
         State("spectra-container", "children"),
-        State("umap-plot", "relayoutData")  # 現在のレイアウトデータ（拡大状態）
+        State("umap-plot", "relayoutData")
     )
     def update_spectra(click_data, existing_spectra, relayout_data):
         # 初期UMAPプロット
@@ -101,17 +89,15 @@ def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
             umap_df,
             x="UMAP Dimension 1",
             y="UMAP Dimension 2",
-            custom_data=["Index"],  # クリックデータ用に `custom_data` を設定
+            custom_data=["Index"],
             title="UMAP Plot",
             opacity=0.7
         )
         fig.update_traces(marker=dict(size=5))
 
-        # 初期化: `existing_spectra` が None の場合は空リストにする
         if existing_spectra is None:
             existing_spectra = []
 
-        # UMAPの拡大状態を保持
         if relayout_data:
             for key in ["xaxis.range[0]", "xaxis.range[1]", "yaxis.range[0]", "yaxis.range[1]"]:
                 if key in relayout_data:
@@ -126,30 +112,22 @@ def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
                         ]
                     )
 
-        # スペクトル表示
         if click_data:
             try:
-                # デバッグ用: `click_data` の内容をログ出力
-                print("ClickData:", click_data)
-
-                # クリックされたポイントのインデックスを取得
                 spectrum_key = click_data["points"][0]["customdata"]
                 if isinstance(spectrum_key, list):
                     spectrum_key = spectrum_key[0]
 
-                spectrum_index = int(spectrum_key.split("_")[1]) - 1  # インデックスは0ベースに調整
+                spectrum_index = int(spectrum_key.split("_")[1]) - 1
 
-                # 範囲外のインデックスを防止
                 if spectrum_index < 0 or spectrum_index >= len(spectra):
                     print(f"Spectrum index {spectrum_index} is out of range.")
                     return fig, existing_spectra
 
-                # スペクトルのロード
                 mz, intensity = load_specific_spectrum_from_mgf(spectra, spectrum_index)
                 print(f"Loaded spectrum: mz({len(mz)}), intensity({len(intensity)})")
 
-                # スペクトルを描画（縦線プロット）
-                if mz and intensity:
+                if len(mz) > 0 and len(intensity) > 0:
                     spectrum_figure = go.Figure()
                     for mz_val, intensity_val in zip(mz, intensity):
                         spectrum_figure.add_trace(go.Scatter(
@@ -162,12 +140,12 @@ def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
                         title=f"MS/MS Spectrum for {spectrum_key}",
                         xaxis_title="m/z",
                         yaxis_title="Intensity",
-                        xaxis=dict(range=[0, mz_max])  # 横軸の範囲を設定
+                        xaxis=dict(range=[0, mz_max])
                     )
 
                     new_figure = dcc.Graph(figure=spectrum_figure)
                     existing_spectra.append(new_figure)
-                    existing_spectra = existing_spectra[-3:]  # 履歴を最大3件に制限
+                    existing_spectra = existing_spectra[-3:]
             except Exception as e:
                 print(f"Error during spectrum loading: {e}")
 
@@ -177,14 +155,15 @@ def create_umap_app(umap_df, mgf_file_path, mz_max=2000):
 
 # メイン処理
 if __name__ == "__main__":
-    # ファイルパスの設定
     umap_results_path = "C:/Users/hyama/data/umap_results.npz"
     mgf_file_path = "C:/Users/hyama/data/combined_spectra.mgf"
 
-    # UMAP結果を読み込み
-    umap_df = load_umap_results(umap_results_path)
-    print("UMAP DataFrame loaded:", umap_df.head())  # デバッグ用出力
+    umap_results = np.load(umap_results_path)
+    umap_df = pd.DataFrame(
+        umap_results["umap_results"],
+        columns=["UMAP Dimension 1", "UMAP Dimension 2"]
+    )
+    umap_df["Index"] = umap_results["valid_keys"]
 
-    # アプリケーションの作成と実行
     app = create_umap_app(umap_df, mgf_file_path, mz_max=2000)
     app.run_server(debug=True)
