@@ -29,11 +29,8 @@ def parse_msp_to_line_info(msp_file_path):
             line = line.strip()
             if line.startswith("NAME:"):
                 if start_line is not None:
-                    # 以前のスペクトルの範囲を記録
                     line_info.append((start_line, i - 1))
-                # 新しいスペクトルの開始行を記録
                 start_line = i
-        # 最後のスペクトル範囲を追加
         if start_line is not None:
             line_info.append((start_line, i))
 
@@ -100,25 +97,22 @@ def create_umap_app(umap_df, msp_file_path, line_info, mz_max=2000):
         Output("spectra-container", "children"),
         Input("umap-plot", "clickData"),
         State("spectra-container", "children"),
-        State("umap-plot", "relayoutData")  # 現在のレイアウトデータ（拡大状態）
+        State("umap-plot", "relayoutData")
     )
     def update_spectra(click_data, existing_spectra, relayout_data):
-        # 初期UMAPプロット
         fig = px.scatter(
             umap_df,
             x="UMAP Dimension 1",
             y="UMAP Dimension 2",
-            custom_data=["Index"],  # クリックデータ用に `custom_data` を設定
+            custom_data=["Index"],
             title="UMAP Plot",
             opacity=0.7
         )
         fig.update_traces(marker=dict(size=5))
 
-        # 初期化: `existing_spectra` が None の場合は空リストにする
         if existing_spectra is None:
             existing_spectra = []
 
-        # UMAPの拡大状態を保持
         if relayout_data:
             for key in ["xaxis.range[0]", "xaxis.range[1]", "yaxis.range[0]", "yaxis.range[1]"]:
                 if key in relayout_data:
@@ -133,32 +127,28 @@ def create_umap_app(umap_df, msp_file_path, line_info, mz_max=2000):
                         ]
                     )
 
-        # スペクトル表示
         if click_data:
             try:
-                # デバッグ用: `click_data` の内容をログ出力
-                print("ClickData:", click_data)
-
-                # クリックされたポイントのインデックスを取得
+                # クリックされたポイントのカスタムデータを取得
                 customdata = click_data["points"][0]["customdata"]
                 if isinstance(customdata, list):
-                    spectrum_key = customdata[0]  # リストの場合、最初の要素を取得
+                    spectrum_key = customdata[0]
                 else:
-                    spectrum_key = customdata  # 単一値の場合はそのまま使用
+                    spectrum_key = customdata
 
-                spectrum_index = int(spectrum_key.split("_")[1])  # `spectrum_12345` からインデックスを抽出
+                # デバッグ用: Spectrum Key
+                print("Spectrum Key:", spectrum_key)
 
-                # `line_info` から行範囲を取得
+                # インデックスの取得
+                spectrum_index = int(spectrum_key.split("_")[1]) - 1
+
                 if spectrum_index >= len(line_info) or spectrum_index < 0:
                     print(f"Spectrum index {spectrum_index} is out of range.")
                     return fig, existing_spectra
 
                 start_line, end_line = line_info[spectrum_index]
-
-                # スペクトルのロード
                 mz, intensity = load_specific_spectrum_from_msp(msp_file_path, start_line, end_line)
 
-                # スペクトルを描画（縦線プロット）
                 if mz and intensity:
                     spectrum_figure = go.Figure()
                     for mz_val, intensity_val in zip(mz, intensity):
@@ -172,12 +162,12 @@ def create_umap_app(umap_df, msp_file_path, line_info, mz_max=2000):
                         title=f"MS/MS Spectrum for {spectrum_key}",
                         xaxis_title="m/z",
                         yaxis_title="Intensity",
-                        xaxis=dict(range=[0, mz_max])  # 横軸の範囲を設定
+                        xaxis=dict(range=[0, mz_max])
                     )
 
                     new_figure = dcc.Graph(figure=spectrum_figure)
                     existing_spectra.append(new_figure)
-                    existing_spectra = existing_spectra[-3:]  # 履歴を最大3件に制限
+                    existing_spectra = existing_spectra[-3:]
             except Exception as e:
                 print(f"Error during spectrum loading: {e}")
 
@@ -188,19 +178,11 @@ def create_umap_app(umap_df, msp_file_path, line_info, mz_max=2000):
 
 # メイン処理
 if __name__ == "__main__":
-    # ファイルパスの設定
-    #umap_results_path = "C:/Users/hyama/umap_results.npz"
     umap_results_path = "C:/Users/hyama/Documents/LargeScaleMSPy/umap_results.npz"
     msp_file_path = "C:/Users/hyama/Documents/R/MSinfoR/MSDIAL-TandemMassSpectralAtlas-VS69-Pos.msp"
 
-    # 行範囲情報を生成
     line_info = parse_msp_to_line_info(msp_file_path)
-    print("Generated line_info:", line_info)  # デバッグ用出力
-
-    # UMAP結果を読み込み
     umap_df = load_umap_results(umap_results_path)
-    print("UMAP DataFrame loaded:", umap_df.head())  # デバッグ用出力
 
-    # アプリケーションの作成と実行
     app = create_umap_app(umap_df, msp_file_path, line_info, mz_max=2000)
     app.run_server(debug=True)
