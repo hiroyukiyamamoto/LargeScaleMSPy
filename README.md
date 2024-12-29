@@ -4,7 +4,7 @@
 
 ## インストール手順
 ダウンロードしたディレクトリに移動し、インストールを実行した後、ライブラリを読み込む  
-pip install -e .
+pip install -e .  
 import LargeScaleMSPy
 
 ## スクリプト
