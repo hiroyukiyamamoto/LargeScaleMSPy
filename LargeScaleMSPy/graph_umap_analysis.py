@@ -10,18 +10,21 @@ import pandas as pd
 import time
 
 # データ前処理関数
-def preprocess_data(input_file_path, processed_file_path, intensity_threshold=0, normalization_threshold=0.01):
+def preprocess_data_in_memory(input_file_path, intensity_threshold=0, normalization_threshold=0.01):
     """
     データ前処理関数。
 
     Parameters:
         input_file_path (str): 入力HDF5ファイルのパス。
-        processed_file_path (str): 出力HDF5ファイルのパス。
         intensity_threshold (float): 強度フィルタリングの閾値。
         normalization_threshold (float): 正規化後の最小値フィルタリングの閾値。
+
+    Returns:
+        processed_data (numpy.ndarray): 前処理されたデータ。
     """
     print("Starting preprocessing...")
-    with h5sparse.File(input_file_path, "r") as f, h5sparse.File(processed_file_path, "w") as f_out:
+    processed_data = []
+    with h5sparse.File(input_file_path, "r") as f:
         for key in f.keys():
             if key.startswith("spectrum_"):
                 sparse_matrix = f[key][:]
@@ -41,36 +44,27 @@ def preprocess_data(input_file_path, processed_file_path, intensity_threshold=0,
 
                 dense_matrix[dense_matrix > 0] = 1  # 非ゼロ要素を1に置換
 
-                processed_sparse_matrix = sp.csr_matrix(dense_matrix)
-                f_out[key] = processed_sparse_matrix
+                processed_data.append(dense_matrix)
 
-                print(f"Processed and saved {key}")
+                print(f"Processed {key}")
     print("Preprocessing completed.")
+    return np.vstack(processed_data)
 
 # 類似度行列計算関数
-def process_similarity_matrix(input_file_path, min_peaks=3, output_csv_path=None):
+def process_similarity_matrix_in_memory(processed_data, min_peaks=3):
     """
     類似度行列を計算する関数。
 
     Parameters:
-        input_file_path (str): スペクトルデータを含む入力HDF5ファイルのパス。
+        processed_data (numpy.ndarray): 前処理されたデータ。
         min_peaks (int): 共通ピーク数の最小値。
-        output_csv_path (str): グラフ隣接行列を保存するCSVファイルのパス。
 
     Returns:
         adjacency_matrix (numpy.ndarray): フィルタリングされた隣接行列。
         valid_indices (numpy.ndarray): 有効なノードのインデックス。
     """
-    print(f"Loading input file: {input_file_path}")
-    with h5sparse.File(input_file_path, "r") as f:
-        all_keys = [key for key in f.keys() if key.startswith("spectrum_")]
-        spectra = [f[key][:].toarray() for key in all_keys]
-
-    X = np.vstack(spectra)
-
-    # 類似度行列の計算
     print("Calculating similarity matrix...")
-    X_sparse = csr_matrix(X)
+    X_sparse = csr_matrix(processed_data)
     Z_sparse = X_sparse @ X_sparse.T  # 共通ピーク数の類似度行列
     Z = Z_sparse.toarray()
 
@@ -88,22 +82,16 @@ def process_similarity_matrix(input_file_path, min_peaks=3, output_csv_path=None
     adjacency_matrix = adjacency_matrix[valid_indices][:, valid_indices]
     print(f"Filtered adjacency matrix shape: {adjacency_matrix.shape}")
 
-    # グラフ隣接行列をCSVに保存
-    if output_csv_path:
-        pd.DataFrame(adjacency_matrix).to_csv(output_csv_path, index=False, header=False)
-        print(f"Adjacency matrix saved to {output_csv_path}")
-
     return adjacency_matrix, valid_indices
 
 # PCA実行関数（隣接行列を利用）
-def perform_pca_from_adjacency(adjacency_matrix, valid_indices, output_file, chunk_size=500, n_components=10):
+def perform_pca_from_adjacency(adjacency_matrix, valid_indices, chunk_size=500, n_components=10):
     """
     隣接行列からPCA（SVD）を実行する関数。
 
     Parameters:
         adjacency_matrix (numpy.ndarray): 隣接行列。
         valid_indices (numpy.ndarray): 有効なノードのインデックス。
-        output_file (str): PCA結果を保存するファイルパス。
         chunk_size (int): チャンクサイズ。
         n_components (int): PCAの次元数。
 
@@ -130,24 +118,18 @@ def perform_pca_from_adjacency(adjacency_matrix, valid_indices, output_file, chu
         raise ValueError("No data available for PCA after chunk processing.")
 
     # 主成分ベクトルとスコアを保存
-    np.savez(output_file,
-             components=ipca.components_,
-             explained_variance_ratio=ipca.explained_variance_ratio_,
-             scores=pca_scores,
-             valid_indices=valid_indices)
-    print(f"PCA results saved to {output_file}")
+    print("PCA processing completed.")
     return pca_scores, ipca.components_
 
 # UMAP実行関数
-def perform_umap(pca_scores, valid_indices, umap_output_file, umap_csv_file):
+def perform_umap(pca_scores, valid_indices, output_file):
     """
     UMAP実行関数。
 
     Parameters:
         pca_scores (numpy.ndarray): PCAスコア。
         valid_indices (numpy.ndarray): 有効なスペクトルインデックス。
-        umap_output_file (str): UMAP結果保存ファイル。
-        umap_csv_file (str): UMAP結果保存CSVファイル。
+        output_file (str): UMAP結果保存ファイル。
     """
     print("Starting UMAP...")
     umap = UMAP(n_neighbors=10, min_dist=0.01, n_components=2, random_state=42)
@@ -157,43 +139,34 @@ def perform_umap(pca_scores, valid_indices, umap_output_file, umap_csv_file):
     spectrum_keys = [f"spectrum_{i + 1:04d}" for i in valid_indices]
 
     # UMAP結果を保存
-    np.savez(umap_output_file, umap_results=umap_results, valid_keys=spectrum_keys)
-    print(f"UMAP results saved to {umap_output_file}")
-
-    # UMAP結果をデータフレームに保存
-    umap_df = pd.DataFrame(umap_results, columns=["UMAP_1", "UMAP_2"])
-    umap_df["Spectrum_Key"] = spectrum_keys
-    umap_df.to_csv(umap_csv_file, index=False)
-    print(f"UMAP results saved to {umap_csv_file}")
+    np.savez(output_file, umap_results=umap_results, valid_keys=spectrum_keys)
+    print(f"UMAP results saved to {output_file}")
 
     # プロットの生成
-    plt.figure(figsize=(10, 8))
-    plt.scatter(umap_results[:, 0], umap_results[:, 1], s=1, alpha=1)
-    plt.title("UMAP Projection", fontsize=16)
-    plt.xlabel("UMAP Dimension 1", fontsize=12)
-    plt.ylabel("UMAP Dimension 2", fontsize=12)
-    plt.grid(True)
-    plt.show()
+    #plt.figure(figsize=(10, 8))
+    #plt.scatter(umap_results[:, 0], umap_results[:, 1], s=1, alpha=1)
+    #plt.title("UMAP Projection", fontsize=16)
+    #plt.xlabel("UMAP Dimension 1", fontsize=12)
+    #plt.ylabel("UMAP Dimension 2", fontsize=12)
+    #plt.grid(True)
+    #plt.show()
 
 # メイン関数
 def main():
     input_file_path = "C:/Users/hyama/data/MassBank-Human.hdf5"
-    processed_file_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/test2.h5"
-    adjacency_csv_path = "C:/Users/hyama/Documents/LargeScaleMSPy/data/adjacency_matrix.csv"
-    pca_output_file = "pca_results2.npz"
-    umap_output_file = "umap_results.npz"
-    umap_csv_file = "umap_results.csv"
+    output_file = "C:/Users/hyama/data/umap_results.npz"
 
-    preprocess_data(input_file_path, processed_file_path, intensity_threshold=0, normalization_threshold=0.01)
+    # データ前処理を実行
+    processed_data = preprocess_data_in_memory(input_file_path, intensity_threshold=0, normalization_threshold=0.01)
 
     # 類似度行列を計算
-    adjacency_matrix, valid_indices = process_similarity_matrix(processed_file_path, min_peaks=3, output_csv_path=adjacency_csv_path)
+    adjacency_matrix, valid_indices = process_similarity_matrix_in_memory(processed_data, min_peaks=3)
 
     # 隣接行列のPCAを実行
-    pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, pca_output_file, chunk_size=10000)
+    pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, chunk_size=10000)
 
     # UMAPを実行
-    perform_umap(pca_scores, valid_indices, umap_output_file=umap_output_file, umap_csv_file=umap_csv_file)
+    perform_umap(pca_scores, valid_indices, output_file=output_file)
 
 if __name__ == "__main__":
     main()
