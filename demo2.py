@@ -16,11 +16,12 @@ mgf_to_hdf5(mgf_file_path, hdf5_file, bin_size=0.01, mz_range=(0, 2000))
 
 # 各ステップを実行し、データを次に渡す
 output_file = "C:/Users/hyama/data/umap_results.npz"
-    
-processed_data = preprocess_data_in_memory(hdf5_file, intensity_threshold=0, normalization_threshold=0.01)
-adjacency_matrix, valid_indices = process_similarity_matrix_in_memory(processed_data, min_peaks=3)
-pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, chunk_size=10000)
-perform_umap(pca_scores, valid_indices, output_file=output_file)
+similarity_hdf5_file = "C:/Users/hyama/data/similarity_matrix.hdf5"
+
+processed_data = preprocess_data_in_memory(hdf5_file)
+valid_indices = compute_similarity_chunk(processed_data, similarity_hdf5_file, chunk_size=1000, min_peaks=3)
+pca_scores, components = perform_incremental_pca(similarity_hdf5_file, n_components=10)
+perform_umap(pca_scores, valid_indices, output_file)
 
 # 4. Dashアプリを起動
 print("Dashアプリを起動します。ブラウザで開いて結果を確認してください。")

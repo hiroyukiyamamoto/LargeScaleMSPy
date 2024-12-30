@@ -7,20 +7,17 @@ mz_max = 2000
 
 # HDF5ファイルに保存
 hdf5_file = "C:/Users/hyama/data/MSDIAL-TandemMassSpectralAtlas-VS69-Pos.hdf5"
-# msp2hdf5(msp_file, hdf5_file, bin_size=0.01, mz_range=(0, 2000))
+msp2hdf5(msp_file, hdf5_file, bin_size=0.01, mz_range=(0, 2000))
 
 # 各ステップを実行し、データを次に渡す
-output_file = "C:/Users/hyama/Documents/LargeScaleMSPy/umap_results.npz"
+output_file = "C:/Users/hyama/data/umap_results.npz"
 
-processed_file_path = preprocess_data_pca(hdf5_file)
-filtered_file_path = filter_data_pca(processed_file_path)
-pca_scores, valid_spectrum_keys = perform_pca(filtered_file_path, n_components=10, chunk_size=150)
-umap_results = perform_pca2umap(pca_scores, valid_spectrum_keys, output_file)
+processed_data = preprocess_data_in_memory(hdf5_file, intensity_threshold=0, normalization_threshold=0.01)
+adjacency_matrix, valid_indices = process_similarity_matrix_in_memory(processed_data, min_peaks=3)
+pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, chunk_size=10000)
+perform_umap(pca_scores, valid_indices, output_file=output_file)
 
-# 行範囲情報を生成
 line_info = parse_msp_to_line_info(msp_file)
-
-# UMAP結果を読み込み
 umap_df = load_umap_results(output_file)
 
 # アプリケーションの作成と実行
