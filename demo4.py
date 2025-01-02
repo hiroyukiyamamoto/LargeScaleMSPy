@@ -9,19 +9,24 @@ mz_max = 2000
 hdf5_file = "C:/Users/hyama/data/MSDIAL-TandemMassSpectralAtlas-VS69-Pos.hdf5"
 msp2hdf5(msp_file, hdf5_file, bin_size=0.01, mz_range=(0, 2000))
 
-# 各ステップを実行し、データを次に渡す
-output_file = "C:/Users/hyama/data/umap_results.npz"
+# 各種処理
+processed_file = preprocess_data_in_memory(hdf5_file)
+similarity_hdf5_file = "C:/Users/hyama/similarity_matrix.hdf5"
+compute_similarity(processed_file, similarity_hdf5_file, min_peaks=3) # 類似度行列の計算
 
-processed_data = preprocess_data_in_memory(hdf5_file, intensity_threshold=0, normalization_threshold=0.01)
-adjacency_matrix, valid_indices = process_similarity_matrix_in_memory(processed_data, min_peaks=3)
-pca_scores, components = perform_pca_from_adjacency(adjacency_matrix, valid_indices, chunk_size=10000)
-perform_umap(pca_scores, valid_indices, output_file=output_file)
+# 類似度行列のフィルタリング
+filtered_hdf5 = "C:/Users/hyama/filtered_similarity_matrix.hdf5"
+filter_zero_rows_and_columns(similarity_hdf5_file, filtered_hdf5)
 
-line_info = parse_msp_to_line_info(msp_file)
-umap_df = load_umap_results(output_file)
+# Incremental PCAの実行
+pca_scores, components, labels, valid_indices = perform_incremental_pca(filtered_hdf5, n_components=10, chunk_size=200)
+print(f"Type of pca_scores: {type(pca_scores)}, shape: {pca_scores.shape if pca_scores is not None else 'N/A'}")
 
-# アプリケーションの作成と実行
-print("Dashアプリを起動します。ブラウザで開いて結果を確認してください。")
-print("http://127.0.0.1:8050/")
-app = create_umap_app(umap_df, msp_file, line_info, mz_max=2000)
+# Perform UMAP
+print("Performing UMAP...")
+umap_results_path = "C:/Users/hyama/umap_results.npz"
+perform_umap(pca_scores,labels, umap_results_path)
+
+# create_umap_app にパスを渡してアプリを作成
+app = create_umap_mgf_app(umap_results_path, mgf_file_path, mz_max)
 app.run_server(debug=False)
