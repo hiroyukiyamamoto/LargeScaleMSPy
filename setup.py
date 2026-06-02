@@ -1,14 +1,15 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
+
 
 setup(
-    name="LargeScaleMSPy",  # パッケージ名
-    version="1.0.0",  # バージョン番号
-    description="MS/MS spectrum visualization by UMAP",  # 簡単な説明
-    author="Hiroyuki Yamamoto",  # 作者名
-    author_email="h.yama2396@gmail.com",  # 作者のメールアドレス
-    url="https://github.com/hiroyukiyamamoto/LargeScaleMSPy",  # GitHubリポジトリのURL
-    packages=find_packages(),  # パッケージを自動検出
-    include_package_data=True,  # 非Pythonファイルも含める
+    name="LargeScaleMSPy",
+    version="1.1.0",
+    description="Large-scale MS/MS preprocessing with IDF-only PCA, UMAP, and visualization utilities",
+    author="Hiroyuki Yamamoto",
+    author_email="h.yama2396@gmail.com",
+    url="https://github.com/hiroyukiyamamoto/LargeScaleMSPy",
+    packages=find_packages(),
+    include_package_data=True,
     install_requires=[
         "numpy",
         "scipy",
@@ -16,17 +17,19 @@ setup(
         "pandas",
         "plotly",
         "dash",
-        "umap-learn"
+        "umap-learn",
+        "scikit-learn",
+        "matplotlib",
     ],
     entry_points={
         "console_scripts": [
-            "umap-msms-viewer=LargeScaleMSPy.main:run_app"  # 実行コマンドのエントリーポイント
+            "umap-msms-viewer=LargeScaleMSPy.main:run_app",
         ]
     },
     classifiers=[
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",  # サポートするPythonバージョン
+    python_requires=">=3.8",
 )
