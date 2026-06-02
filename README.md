@@ -25,16 +25,16 @@ pip install -e .
 
 ### 配布ファイルからインストール
 
-`dist/` に wheel がある場合は、以下のようにインストールできます。
+wheel が README と同じ階層にある場合は、以下のようにインストールできます。
 
 ```bash
-pip install dist/largescalemspy-1.1.0-py3-none-any.whl
+pip install largescalemspy-1.1.0-py3-none-any.whl
 ```
 
 sdist からインストールする場合は以下です。
 
 ```bash
-pip install dist/largescalemspy-1.1.0.tar.gz
+pip install largescalemspy-1.1.0.tar.gz
 ```
 
 配布ファイルを作り直す場合は、以下を実行します。
